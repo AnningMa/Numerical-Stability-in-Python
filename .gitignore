@@ -1,0 +1,8 @@
+data/
+features/
+convert_3.py
+.dvc/
+.venv/
+figures/
+MA_lab5_report.md
+

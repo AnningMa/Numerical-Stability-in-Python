@@ -1,0 +1,233 @@
+schema: '2.0'
+stages:
+  parse:
+    cmd: python parse-corpus.py
+    deps:
+    - path: data/corpus
+      hash: md5
+      md5: 4711d56ab2176a413ea2dd430055b8b8.dir
+      size: 738737999
+      nfiles: 17790
+    - path: parse-corpus.py
+      hash: md5
+      md5: 70bc1ff0dc43bf87dd680de7e87c6393
+      size: 4585
+    params:
+      params.yaml:
+        filter.min_occ: 2
+        filter.min_speakers: 2
+        parse.word_tier_candidates:
+        - words
+        - word
+        - Words
+        - Word
+        - orthography
+        - Orthography
+        paths.corpus_dir: data/corpus
+        paths.metadata: data/corpus/metadata_RUFR.csv
+        paths.words_csv: features/words.csv
+    outs:
+    - path: features/words.csv
+      hash: md5
+      md5: edef1393d854cd69088fa662ca2fb0d0
+      size: 251213
+  extract:
+    cmd: python extract_features.py
+    deps:
+    - path: data/corpus
+      hash: md5
+      md5: 4711d56ab2176a413ea2dd430055b8b8.dir
+      size: 738737999
+      nfiles: 17790
+    - path: extract_features.py
+      hash: md5
+      md5: 4995ba00a2e62d075a66527ee36f6cdf
+      size: 5689
+    - path: features/words.csv
+      hash: md5
+      md5: edef1393d854cd69088fa662ca2fb0d0
+      size: 251213
+    params:
+      params.yaml:
+        extract.min_segment_samples: 160
+        extract.model_name: facebook/wav2vec2-base
+        extract.target_sr: 16000
+        filter.min_occ: 2
+        filter.min_speakers: 2
+        paths.corpus_dir: data/corpus
+        paths.emb_float64: features/embeddings_float64.npy
+        paths.segments_csv: features/segments.csv
+        paths.words_csv: features/words.csv
+    outs:
+    - path: features/embeddings_float64.npy
+      hash: md5
+      md5: 4067338506ed655552bf7900872edc1b
+      size: 42080384
+    - path: features/segments.csv
+      hash: md5
+      md5: c8d81bbccb900e4a9561e6be063fe0a1
+      size: 239894
+  convert_float:
+    cmd: python convert_1.py
+    deps:
+    - path: convert_1.py
+      hash: md5
+      md5: cfb8695fb4b8bf990e5a2276328e667b
+      size: 1633
+    - path: features/embeddings_float64.npy
+      hash: md5
+      md5: 4067338506ed655552bf7900872edc1b
+      size: 42080384
+    params:
+      params.yaml:
+        paths.emb_float16: features/embeddings_float16.npy
+        paths.emb_float32: features/embeddings_float32.npy
+        paths.emb_float64: features/embeddings_float64.npy
+    outs:
+    - path: features/embeddings_float16.npy
+      hash: md5
+      md5: d652e0d75b843ad859c47fbe8f8161b4
+      size: 10520192
+    - path: features/embeddings_float32.npy
+      hash: md5
+      md5: 95d0a752b428954da5c97b4d2ddb6cfb
+      size: 21040256
+  convert_int8:
+    cmd: python convert_8bit.py
+    deps:
+    - path: convert_8bit.py
+      hash: md5
+      md5: dca6ee2b358989af229ea3eb6d47f227
+      size: 3498
+    - path: features/embeddings_float64.npy
+      hash: md5
+      md5: 4067338506ed655552bf7900872edc1b
+      size: 42080384
+    params:
+      params.yaml:
+        paths.emb_float64: features/embeddings_float64.npy
+        paths.emb_int8: features/embeddings_int8.npy
+        paths.emb_int8_scales: features/embeddings_int8_scales.npy
+        paths.emb_int8_zp: features/embeddings_int8_zp.npy
+        quantize.int8_levels: 255
+    outs:
+    - path: features/embeddings_int8.npy
+      hash: md5
+      md5: 8964f487dbeea1059e81cefe0a806119
+      size: 5260160
+    - path: features/embeddings_int8_scales.npy
+      hash: md5
+      md5: 80c6f1b09b90b5f294aad2bb43290f1e
+      size: 54920
+    - path: features/embeddings_int8_zp.npy
+      hash: md5
+      md5: 152f095c1189e3b7a7dbbb636c5bbc8b
+      size: 6977
+  compute_distances:
+    cmd: python compute_distances.py
+    deps:
+    - path: compute_distances.py
+      hash: md5
+      md5: 2a5ae9bb34e68a11220c2098fa1db94b
+      size: 5501
+    - path: features/embeddings_float16.npy
+      hash: md5
+      md5: d652e0d75b843ad859c47fbe8f8161b4
+      size: 10520192
+    - path: features/embeddings_float32.npy
+      hash: md5
+      md5: 95d0a752b428954da5c97b4d2ddb6cfb
+      size: 21040256
+    - path: features/embeddings_float64.npy
+      hash: md5
+      md5: 4067338506ed655552bf7900872edc1b
+      size: 42080384
+    - path: features/embeddings_int8.npy
+      hash: md5
+      md5: 8964f487dbeea1059e81cefe0a806119
+      size: 5260160
+    - path: features/embeddings_int8_scales.npy
+      hash: md5
+      md5: 80c6f1b09b90b5f294aad2bb43290f1e
+      size: 54920
+    - path: features/embeddings_int8_zp.npy
+      hash: md5
+      md5: 152f095c1189e3b7a7dbbb636c5bbc8b
+      size: 6977
+    - path: features/segments.csv
+      hash: md5
+      md5: c8d81bbccb900e4a9561e6be063fe0a1
+      size: 239894
+    params:
+      params.yaml:
+        paths.emb_float16: features/embeddings_float16.npy
+        paths.emb_float32: features/embeddings_float32.npy
+        paths.emb_float64: features/embeddings_float64.npy
+        paths.emb_int8: features/embeddings_int8.npy
+        paths.emb_int8_scales: features/embeddings_int8_scales.npy
+        paths.emb_int8_zp: features/embeddings_int8_zp.npy
+        paths.results_csv: features/distance_results.csv
+        paths.segments_csv: features/segments.csv
+    outs:
+    - path: features/distance_results.csv
+      hash: md5
+      md5: ef41cf34bb5467293f9a4b91da957cb5
+      size: 239
+  visualize:
+    cmd: python visualize.py
+    deps:
+    - path: features/distance_results.csv
+      hash: md5
+      md5: ef41cf34bb5467293f9a4b91da957cb5
+      size: 239
+    - path: features/embeddings_float16.npy
+      hash: md5
+      md5: d652e0d75b843ad859c47fbe8f8161b4
+      size: 10520192
+    - path: features/embeddings_float32.npy
+      hash: md5
+      md5: 95d0a752b428954da5c97b4d2ddb6cfb
+      size: 21040256
+    - path: features/embeddings_float64.npy
+      hash: md5
+      md5: 4067338506ed655552bf7900872edc1b
+      size: 42080384
+    - path: features/embeddings_int8.npy
+      hash: md5
+      md5: 8964f487dbeea1059e81cefe0a806119
+      size: 5260160
+    - path: features/embeddings_int8_scales.npy
+      hash: md5
+      md5: 80c6f1b09b90b5f294aad2bb43290f1e
+      size: 54920
+    - path: features/embeddings_int8_zp.npy
+      hash: md5
+      md5: 152f095c1189e3b7a7dbbb636c5bbc8b
+      size: 6977
+    - path: features/segments.csv
+      hash: md5
+      md5: c8d81bbccb900e4a9561e6be063fe0a1
+      size: 239894
+    - path: visualize.py
+      hash: md5
+      md5: 7d13986cd1b13d0067d92621de6f76c1
+      size: 9761
+    params:
+      params.yaml:
+        paths.emb_float16: features/embeddings_float16.npy
+        paths.emb_float32: features/embeddings_float32.npy
+        paths.emb_float64: features/embeddings_float64.npy
+        paths.emb_int8: features/embeddings_int8.npy
+        paths.emb_int8_scales: features/embeddings_int8_scales.npy
+        paths.emb_int8_zp: features/embeddings_int8_zp.npy
+        paths.figures_dir: figures
+        paths.results_csv: features/distance_results.csv
+        paths.segments_csv: features/segments.csv
+        visualize.max_samples: 10000
+        visualize.seed: 42
+    outs:
+    - path: figures
+      hash: md5
+      md5: 77ebc6533c3fb907c3b8977610812614.dir
+      size: 325340
+      nfiles: 4

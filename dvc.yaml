@@ -1,0 +1,133 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# dvc.yaml  —  pipeline stage definitions
+# Run the full pipeline:  dvc repro
+# Inspect params:         dvc params show
+# Inspect metrics:        dvc metrics show
+# ─────────────────────────────────────────────────────────────────────────────
+
+vars:
+  - params.yaml   # import all sections for ${...} substitution below
+
+stages:
+
+  # ── Stage 1: Parse TextGrids → word-level CSV ──────────────────────────────
+  parse:
+    cmd: python parse-corpus.py
+    deps:
+      - parse-corpus.py
+      - ${paths.corpus_dir}
+    params:
+      - paths.corpus_dir
+      - paths.metadata
+      - paths.words_csv
+      - parse.word_tier_candidates
+      - filter.min_speakers
+      - filter.min_occ
+    outs:
+      - ${paths.words_csv}
+
+  # ── Stage 2: Extract wav2vec2 embeddings (float64 reference) ───────────────
+  extract:
+    cmd: python extract_features.py
+    deps:
+      - extract_features.py
+      - ${paths.words_csv}
+      - ${paths.corpus_dir}
+    params:
+      - paths.corpus_dir
+      - paths.words_csv
+      - paths.emb_float64
+      - paths.segments_csv
+      - extract.model_name
+      - extract.target_sr
+      - extract.min_segment_samples
+      - filter.min_speakers
+      - filter.min_occ
+    outs:
+      - ${paths.emb_float64}
+      - ${paths.segments_csv}
+
+  # ── Stage 3a: Convert float64 → float32 and float16 ───────────────────────
+  convert_float:
+    cmd: python convert_1.py
+    deps:
+      - convert_1.py
+      - ${paths.emb_float64}
+    params:
+      - paths.emb_float64
+      - paths.emb_float32
+      - paths.emb_float16
+    outs:
+      - ${paths.emb_float32}
+      - ${paths.emb_float16}
+
+  # ── Stage 3b: Asymmetric per-row 8-bit quantization ───────────────────────
+  convert_int8:
+    cmd: python convert_8bit.py
+    deps:
+      - convert_8bit.py
+      - ${paths.emb_float64}
+    params:
+      - paths.emb_float64
+      - paths.emb_int8
+      - paths.emb_int8_scales
+      - paths.emb_int8_zp
+      - quantize.int8_levels
+    outs:
+      - ${paths.emb_int8}
+      - ${paths.emb_int8_scales}
+      - ${paths.emb_int8_zp}
+
+  # ── Stage 4: Compute cosine distances and summary statistics ───────────────
+  compute_distances:
+    cmd: python compute_distances.py
+    deps:
+      - compute_distances.py
+      - ${paths.segments_csv}
+      - ${paths.emb_float64}
+      - ${paths.emb_float32}
+      - ${paths.emb_float16}
+      - ${paths.emb_int8}
+      - ${paths.emb_int8_scales}
+      - ${paths.emb_int8_zp}
+    params:
+      - paths.segments_csv
+      - paths.emb_float64
+      - paths.emb_float32
+      - paths.emb_float16
+      - paths.emb_int8
+      - paths.emb_int8_scales
+      - paths.emb_int8_zp
+      - paths.results_csv
+    outs:
+      - ${paths.results_csv}:
+          cache: false
+
+  # ── Stage 5: Visualisation ─────────────────────────────────────────────────
+  visualize:
+    cmd: python visualize.py
+    deps:
+      - visualize.py
+      - ${paths.results_csv}
+      - ${paths.segments_csv}
+      - ${paths.emb_float64}
+      - ${paths.emb_float32}
+      - ${paths.emb_float16}
+      - ${paths.emb_int8}
+      - ${paths.emb_int8_scales}
+      - ${paths.emb_int8_zp}
+    params:
+      - paths.results_csv
+      - paths.segments_csv
+      - paths.emb_float64
+      - paths.emb_float32
+      - paths.emb_float16
+      - paths.emb_int8
+      - paths.emb_int8_scales
+      - paths.emb_int8_zp
+      - paths.figures_dir
+      - visualize.max_samples
+      - visualize.seed
+    outs:
+      - ${paths.figures_dir}:
+          cache: false

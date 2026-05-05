@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# params.yaml  —  single source of truth for all pipeline parameters
+# Referenced by dvc.yaml (vars) and by each Python script.
+# ─────────────────────────────────────────────────────────────────────────────
+
+paths:
+  # raw data
+  corpus_dir:       data/corpus
+  metadata:         data/corpus/metadata_RUFR.csv
+
+  # stage 1 output
+  words_csv:        features/words.csv
+
+  # stage 2 outputs
+  emb_float64:      features/embeddings_float64.npy
+  segments_csv:     features/segments.csv
+
+  # stage 3a outputs
+  emb_float32:      features/embeddings_float32.npy
+  emb_float16:      features/embeddings_float16.npy
+
+  # stage 3b outputs
+  emb_int8:         features/embeddings_int8.npy
+  emb_int8_scales:  features/embeddings_int8_scales.npy
+  emb_int8_zp:      features/embeddings_int8_zp.npy
+
+  # stage 4 output
+  results_csv:      features/distance_results.csv
+
+  # stage 5 output directory
+  figures_dir:      figures
+
+parse:
+  # TextGrid tier names tried in order when looking for word-level annotations
+  word_tier_candidates:
+    - words
+    - word
+    - Words
+    - Word
+    - orthography
+    - Orthography
+
+filter:
+  # minimum number of speakers that must have a word for it to be usable
+  min_speakers: 2
+  # minimum number of distinct sentence_id occurrences per (word, speaker)
+  min_occ: 2
+
+extract:
+  model_name:          facebook/wav2vec2-base
+  target_sr:           16000
+  # discard audio segments shorter than this many samples (= 10 ms at 16 kHz)
+  min_segment_samples: 160
+
+quantize:
+  # number of quantization levels for 8-bit: 2^8 - 1 = 255
+  int8_levels: 255
+
+visualize:
+  # number of intra/inter pairs sampled per precision for KDE
+  max_samples: 10000
+  seed:        42

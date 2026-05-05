@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-"""
-Step 5: Visualise distance distributions and efficiency tradeoffs.
-
-Figures saved to figures/:
-  fig1_kde.png         KDE of intra/inter distance distributions per precision
-  fig2_bars.png        Grouped bar chart: intra vs inter mean distances
-  fig3_ratio.png       inter/intra ratio across precisions
-  fig5_efficiency.png  File size and compute time across precisions
-"""
 
 import os
 import yaml
@@ -16,15 +6,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 
-# ── config ───────────────────────────────────────────────────────────────────
+# ── config ──────
 with open("params.yaml") as _f:
-    _P = yaml.safe_load(_f)
+    P = yaml.safe_load(_f)
 
-RESULTS_CSV = _P["paths"]["results_csv"]
-SEG_CSV     = _P["paths"]["segments_csv"]
-MAX_SAMPLES = _P["visualize"]["max_samples"]
-SEED        = _P["visualize"]["seed"]
-FIGURES_DIR = _P["paths"]["figures_dir"]
+RESULTS_CSV = P["paths"]["results_csv"]
+SEG_CSV     = P["paths"]["segments_csv"]
+MAX_SAMPLES = P["visualize"]["max_samples"]
+SEED        = P["visualize"]["seed"]
+FIGURES_DIR = P["paths"]["figures_dir"]
 
 PRECISIONS  = ["float64", "float32", "float16", "int8"]
 PREC_LABELS = ["float64\n(ref)", "float32", "float16", "int8"]
@@ -40,16 +30,11 @@ EMB_CFG     = {
 }
 COLOR_INTRA = "#2196F3"
 COLOR_INTER = "#F44336"
-# ─────────────────────────────────────────────────────────────────────────────
 
 os.makedirs(FIGURES_DIR, exist_ok=True)
 plt.rcParams.update({"font.size": 11, "axes.spines.top": False, "axes.spines.right": False})
 
-
-# ── helpers ──────────────────────────────────────────────────────────────────
-
 def load_embeddings(cfg):
-    """Load embedding matrix in native dtype (float16/32/64 or reconstructed int8)."""
     if "scales" in cfg:
         q      = np.load(cfg["emb"])
         scales = np.load(cfg["scales"])
@@ -57,13 +42,7 @@ def load_embeddings(cfg):
         return (q.astype(np.float64) - zp[:, None]) * scales[:, None]
     return np.load(cfg["emb"])
 
-
 def build_pair_samples(seg_df, max_samples, seed):
-    """
-    Build sampled (ii, jj) index arrays for intra and inter pairs.
-    Intra: same word, same speaker, different sentence_id.
-    Inter: same word, different speaker.
-    """
     rng = np.random.default_rng(seed)
 
     intra_ii, intra_jj = [], []
@@ -106,7 +85,6 @@ def build_pair_samples(seg_df, max_samples, seed):
 
 
 def cosine_distances_for_pairs(X, ii, jj):
-    """Compute cosine distances for given index pairs in native dtype."""
     X = X.astype(np.float32) if X.dtype == np.float16 else X  # avoid float16 norm overflow
     norms = np.linalg.norm(X, axis=1)
     norms = np.where(norms == 0, 1.0, norms)
@@ -114,14 +92,12 @@ def cosine_distances_for_pairs(X, ii, jj):
     return (1.0 - np.clip(sim, -1.0, 1.0)).astype(np.float64)
 
 
-# ── load data ────────────────────────────────────────────────────────────────
 results = pd.read_csv(RESULTS_CSV)
 seg_df  = pd.read_csv(SEG_CSV)
 
-print("Building pair sample indices …")
 intra_ii, intra_jj, inter_ii, inter_jj = build_pair_samples(seg_df, MAX_SAMPLES, SEED)
 
-print("Computing sampled distances per precision …")
+print("Computing sampled distances")
 kde_data = {}
 for p in PRECISIONS:
     X = load_embeddings(EMB_CFG[p])
@@ -129,10 +105,10 @@ for p in PRECISIONS:
         "intra": cosine_distances_for_pairs(X, intra_ii, intra_jj),
         "inter": cosine_distances_for_pairs(X, inter_ii, inter_jj),
     }
-    print(f"  {p} done")
 
 
-# ── Figure 1: KDE distance distributions ─────────────────────────────────────
+
+# ── distance distributions ────
 fig, axes = plt.subplots(2, 2, figsize=(11, 8), sharex=True, sharey=False)
 fig.suptitle("Cosine Distance Distributions by Precision", fontsize=14, fontweight="bold")
 
@@ -153,10 +129,8 @@ for ax, p, label in zip(axes.flat, PRECISIONS, PREC_LABELS):
 plt.tight_layout()
 plt.savefig(f"{FIGURES_DIR}/fig1_kde.png", dpi=150)
 plt.close()
-print("Saved figures/fig1_kde.png")
 
-
-# ── Figure 2: Grouped bar chart intra vs inter ────────────────────────────────
+# ── Grouped bar chart intra vs inter ───────
 x    = np.arange(len(PRECISIONS))
 w    = 0.35
 fig, ax = plt.subplots(figsize=(8, 5))
@@ -178,10 +152,9 @@ ax.legend()
 plt.tight_layout()
 plt.savefig(f"{FIGURES_DIR}/fig2_bars.png", dpi=150)
 plt.close()
-print("Saved figures/fig2_bars.png")
 
 
-# ── Figure 3: inter/intra ratio line plot ─────────────────────────────────────
+# ── inter/intra ratio line plot ───────
 fig, ax = plt.subplots(figsize=(7, 4))
 
 ax.plot(PREC_LABELS, results["ratio"], marker="o", color="#4CAF50",
@@ -200,10 +173,9 @@ ax.legend()
 plt.tight_layout()
 plt.savefig(f"{FIGURES_DIR}/fig3_ratio.png", dpi=150)
 plt.close()
-print("Saved figures/fig3_ratio.png")
 
 
-# ── Figure 5: efficiency — file size and compute time ─────────────────────────
+# ── efficiency — file size and compute time ──────
 fig, ax1 = plt.subplots(figsize=(8, 5))
 ax2 = ax1.twinx()
 
@@ -236,6 +208,3 @@ ax1.legend(lines, labels, loc="upper right")
 plt.tight_layout()
 plt.savefig(f"{FIGURES_DIR}/fig5_efficiency.png", dpi=150)
 plt.close()
-print("Saved figures/fig5_efficiency.png")
-
-print("\nAll figures saved to figures/")
